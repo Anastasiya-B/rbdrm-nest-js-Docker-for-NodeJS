@@ -10,7 +10,7 @@ Start the application:
 docker compose up -d
 ```
 
-Check running containers:
+Wait until the API container becomes healthy:
 
 ```bash
 docker compose ps
@@ -44,13 +44,15 @@ docker compose down
 
 The development configuration uses `docker-compose.override.yml` with a bind mount and hot reload.
 
+The dev configuration uses a separate image built from the `builder` stage, so `tsx` and other dev dependencies are available.
+
 Run:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-Changes inside `src/` are available in the container without rebuilding the image.
+Changes inside `src/` are available in the container without rebuilding the image after the initial build.
 
 ## Production-like run
 
@@ -84,41 +86,53 @@ docker compose up -d
 
 The record was still present after restart.
 
+To fully recreate PostgreSQL from `init.sql`, including a new empty volume:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
 ## Docker image sizes
 
-Builder image:
+Single-stage image:
 
 ```text
 340 MB
 ```
 
-Final image:
+Final multi-stage image:
 
 ```text
 245 MB
 ```
 
-The final image is smaller because it contains only production dependencies and compiled JavaScript, while the builder also contains TypeScript and development dependencies.
+The multi-stage image is smaller because the final stage contains only production dependencies and compiled JavaScript, while the single-stage image also keeps development dependencies and build tools.
 
-## Build stages
+## Image size comparison
 
-Build the final image:
+Build the single-stage image:
 
 ```bash
-docker build -t node-docker-api .
+docker build -f Dockerfile.single -t node-api-single .
 ```
 
-Build only the builder stage:
+Check its size:
 
 ```bash
-docker build --target builder -t node-docker-api-builder .
+docker images node-api-single
 ```
 
-Check image sizes:
+Build the final multi-stage image:
 
 ```bash
-docker images node-docker-api
-docker images node-docker-api-builder
+docker build -t node-api-final .
+```
+
+Check its size:
+
+```bash
+docker images node-api-final
 ```
 
 ## Non-root user
@@ -136,7 +150,37 @@ The returned value must not be `0`.
 Check container health:
 
 ```bash
-docker compose -f docker-compose.yml ps
+docker compose ps
 ```
 
-The API container should have `healthy` status.
+After startup, PostgreSQL and API should have `healthy` status.
+
+You can also inspect API health directly:
+
+```bash
+docker inspect --format '{{.State.Health.Status}}' rbdrm-nest-js-docker-for-nodejs-api-1
+```
+
+## Clean start check
+
+To check that the project starts correctly from a clean state:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
+
+Wait until the containers become healthy:
+
+```bash
+docker compose ps
+```
+
+Wait until both containers have `healthy` status before running curl commands.
+
+Then check the endpoints:
+
+```bash
+curl http://localhost:3000/health
+curl http://localhost:3000/users
+```

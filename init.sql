@@ -8,4 +8,4 @@ VALUES
   ('Anastasiia'),
   ('Alex'),
   ('Stasya'),
-  ('Vlad'),
+  ('Vlad');
