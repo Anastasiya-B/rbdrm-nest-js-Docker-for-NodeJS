@@ -6,6 +6,8 @@ services:
       context: .
       target: builder
 
+    user: node
+
     command: npm run dev
 
     volumes:
